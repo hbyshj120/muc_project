@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MCU_Team25_Voice_Assistant</string>
+    <string name="stop">Stop</string>
+    <string name="start">Start</string>
+</resources>
