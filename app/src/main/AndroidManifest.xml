@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.STORAGE"/>
+
 
     <application
         android:allowBackup="true"
@@ -15,6 +18,12 @@
         android:theme="@style/Theme.MCU_Team25_Voice_Assistant"
         tools:targetApi="31">
         <activity
+            android:name=".AudioDataCollection"
+            android:exported="false" />
+        <activity
+            android:name=".CounterDownTimer"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
@@ -26,3 +35,5 @@
     </application>
 
 </manifest>
+
+    <!--            android:name=".Microphone_Data_Collection"-->

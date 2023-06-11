@@ -33,28 +33,28 @@
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="30sp" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Countdown Timer"
-        android:id="@+id/countdown_timer"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="30sp" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RECORD"
+            android:id="@+id/button2"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="30sp" />
 
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Turn off Speech Recognition"
-        android:id="@+id/button_offline"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="30sp" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PLAY"
+            android:id="@+id/button3"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="30sp" />
 
-<!--    <Button-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:text="STOP PLAYING"-->
-<!--        android:id="@+id/button4"-->
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="30sp" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="STOP PLAYING"
+            android:id="@+id/button4"
+    android:layout_gravity="center_horizontal"
+    android:layout_marginTop="30sp" />
 </LinearLayout>

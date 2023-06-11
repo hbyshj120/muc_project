@@ -6,55 +6,39 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="30sp"
-    tools:context=".MainActivity">
+    tools:context=".AudioDataCollection">
+<!--    tools:context=".Microphone_Data_Collection">-->
 
-    <TextView
-        android:id="@+id/xValue"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <TextView
-        android:id="@+id/yValue"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="30sp" />
-
-    <TextView
-        android:id="@+id/zValue"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="30sp" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Microphone Data Collection"
-        android:id="@+id/microphone_data_collection"
+        android:text="RECORD Audio"
+        android:id="@+id/button1"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="30sp" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Countdown Timer"
-        android:id="@+id/countdown_timer"
+        android:text="STOP RECORDING"
+        android:id="@+id/button2"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="30sp" />
-
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Turn off Speech Recognition"
-        android:id="@+id/button_offline"
+        android:text="PLAY Audio"
+        android:id="@+id/button3"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="30sp" />
 
-<!--    <Button-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:text="STOP PLAYING"-->
-<!--        android:id="@+id/button4"-->
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="STOP PLAYING"
+        android:id="@+id/button4"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="30sp" />
 </LinearLayout>
