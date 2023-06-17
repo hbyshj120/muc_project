@@ -21,6 +21,7 @@ import android.media.AudioRecord;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.os.Bundle;
+import android.os.Handler;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -149,8 +150,8 @@ public class AudioDataCollection extends AppCompatActivity {
             public void onClick(View v) {
                 buttonStopRecording.setEnabled(false);
                 buttonStart.setEnabled(true);
-                buttonStopPlaying.setEnabled(true);
-                buttonPlay.setEnabled(false);
+                buttonStopPlaying.setEnabled(false);
+                buttonPlay.setEnabled(true);
             }
         });
 
@@ -226,6 +227,17 @@ public class AudioDataCollection extends AppCompatActivity {
             audioRecord.release();
             audioRecord = null;
             recordingThread = null;
+
+            Runnable r = new Runnable() {
+                @Override
+                public void run(){
+                    Intent intent = new Intent(AudioDataCollection.this, MainActivity.class);
+                    startActivity(intent);
+                }
+            };
+
+            Handler h = new Handler();
+            h.postDelayed(r, 20000); // <-- the "1000" is the delay time in miliseconds.
         }
     }
 

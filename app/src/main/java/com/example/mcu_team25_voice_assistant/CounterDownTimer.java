@@ -1,7 +1,5 @@
 package com.example.mcu_team25_voice_assistant;
 
-import static android.Manifest.permission.RECORD_AUDIO;
-
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
         import android.app.Activity;
@@ -12,8 +10,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import androidx.core.app.ActivityCompat;
 
 // reference: https://stackoverflow.com/questions/10032003/how-to-make-a-countdown-timer-in-android
 public class CounterDownTimer extends Activity {
@@ -29,11 +25,11 @@ public class CounterDownTimer extends Activity {
     public void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.countdown_timer);
+        setContentView(R.layout.main_page);
 
         text1=(TextView)findViewById(R.id.textView1);
 
-        int time_duration_in_seconds = getIntent().getIntExtra("time_duration_in_seconds", 0);
+        int time_duration_in_seconds = getIntent().getIntExtra("time_duration_in_seconds", 31);
         int COUNTDWON_INTERVAL = 1000;
         int Total_millis_counts = COUNTDWON_INTERVAL * time_duration_in_seconds;
         new CountDownTimer(Total_millis_counts, COUNTDWON_INTERVAL) { // adjust the milli seconds here
@@ -51,13 +47,13 @@ public class CounterDownTimer extends Activity {
             public void onFinish() {
                 mediaPlayer = new MediaPlayer();
                 try {
-                    mediaPlayer.setDataSource(getFilesDir().getAbsolutePath()+"/countdown_finished.wav");
+                    mediaPlayer.setDataSource(getFilesDir().getAbsolutePath()+"/beep.wav");
                     mediaPlayer.prepare();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
 
-                Log.d(TAG, getFilesDir().getAbsolutePath()+"/countdown_finished.wav");
+                Log.d(TAG, getFilesDir().getAbsolutePath()+"/beep.wav");
 
                 mediaPlayer.start();
                 Toast.makeText(CounterDownTimer.this, "Countdown Finished!", Toast.LENGTH_SHORT).show();

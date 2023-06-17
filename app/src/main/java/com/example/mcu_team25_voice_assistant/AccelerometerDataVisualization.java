@@ -89,16 +89,16 @@ public class AccelerometerDataVisualization extends AppCompatActivity {
         );
 
 
-        button_countdown_timer = (Button) findViewById(R.id.countdown_timer);
-
-        button_countdown_timer.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(AccelerometerDataVisualization.this,CounterDownTimer.class);
-                intent.putExtra("time_duration_in_seconds",5);
-                startActivity(intent);
-            }
-        });
+//        button_countdown_timer = (Button) findViewById(R.id.countdown_timer);
+//
+//        button_countdown_timer.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                Intent intent = new Intent(AccelerometerDataVisualization.this,CounterDownTimer.class);
+//                intent.putExtra("time_duration_in_seconds",5);
+//                startActivity(intent);
+//            }
+//        });
 
 //        buttonStopRecording.setOnClickListener(new View.OnClickListener() {
 //            @Override
