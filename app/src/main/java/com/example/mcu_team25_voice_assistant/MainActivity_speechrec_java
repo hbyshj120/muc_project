@@ -21,7 +21,7 @@ import java.util.ArrayList;
 public class MainActivity extends AppCompatActivity {
 
     private SpeechRecognizer speechRecognizer;
-    private Intent intentRecognizer;
+    private Intent inftentRecognizer;
     private TextView textView;
 
     @Override

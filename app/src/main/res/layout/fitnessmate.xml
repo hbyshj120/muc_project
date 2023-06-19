@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="30sp"
-    tools:context=".MainActivity">
+    tools:context=".FitnessMate">
 
     <TextView
         android:id="@+id/yValue"

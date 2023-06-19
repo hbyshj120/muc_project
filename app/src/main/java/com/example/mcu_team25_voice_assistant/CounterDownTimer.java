@@ -61,7 +61,7 @@ public class CounterDownTimer extends Activity {
                 mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                     @Override
                     public void onCompletion(MediaPlayer mp) {
-                        Intent intent = new Intent(CounterDownTimer.this, MainActivity.class);
+                        Intent intent = new Intent(CounterDownTimer.this, FitnessMate.class);
                         startActivity(intent);
                     }
                 });
