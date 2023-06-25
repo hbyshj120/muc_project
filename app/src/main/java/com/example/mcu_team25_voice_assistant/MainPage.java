@@ -107,19 +107,13 @@ public class MainPage extends Activity {
 
                 if (isRecord) {
                     stopRecord();
-                    isRecord = false;
-                    Log.d(TAG, "Not recording");
-
                 } else {
                     Log.d(TAG, "Is recording");
                     if (CheckPermission()) {
                         Log.d(TAG, "buttonStart.setOnClickListener: checked permission");
-
                         AudioRecorderReady();
-
                         try {
                             startRecord("mainpage.wav");
-                            isRecord = true;
                         } catch (IllegalStateException e) {
                             e.printStackTrace();
                         }
@@ -149,7 +143,9 @@ public class MainPage extends Activity {
     }
 
     private void AudioRecorderReady() {
-        recordBufsize = AudioRecord.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
+//        recordBufsize = AudioRecord.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
+        recordBufsize = 2048*2;
+
         Log.d(TAG, "AudioRecorderReady: size --> " + recordBufsize);
 
         try {
@@ -173,6 +169,7 @@ public class MainPage extends Activity {
         if (isRecord) {
             return;
         }
+        Log.i("audioRecordTest", "start 录音");
         audioRecord.startRecording();
         // 让录制状态为true
         isRecord = true;
@@ -199,8 +196,7 @@ public class MainPage extends Activity {
         AudioRecordThread(String s) {wavFilename = s; }
         @Override
         public void run() {
-            writeDateTOFile(rawFilename);//往文件中写入裸数据
-            copyWaveFile(rawFilename, wavFilename);//给裸数据加上头文件
+            writeDateTOFile(rawFilename, wavFilename);//往文件中写入裸数据
         }
     }
 
@@ -209,7 +205,7 @@ public class MainPage extends Activity {
      * 如果需要播放就必须加入一些格式或者编码的头信息。但是这样的好处就是你可以对音频的 裸数据进行处理，比如你要做一个爱说话的TOM
      * 猫在这里就进行音频的处理，然后重新封装 所以说这样得到的音频比较容易做一些音频的处理。
      */
-    private void writeDateTOFile(String rawname) {
+    private void writeDateTOFile(String rawFilename, String wavFilename) {
         // new一个byte数组用来存一些字节数据，大小为缓冲区大小
         Log.d(TAG, "writeDateTOFile: size --> " + recordBufsize);
 
@@ -217,7 +213,7 @@ public class MainPage extends Activity {
         FileOutputStream fos = null;
         int readsize = 0;
         try {
-            File file = new File( rawname);
+            File file = new File( rawFilename);
             if (file.exists()) {
                 file.delete();
             }
@@ -227,9 +223,20 @@ public class MainPage extends Activity {
         }
         int counter = 0;
         boolean on = false;
-        double threshold = 0.7;
+        double threshold = 20.0;
         boolean start = true;
         int off_counter = 0;
+
+
+        // active listening --> active voice occurred before and pass voice occurence never > 1 second
+        boolean activeListening = false;
+        int passiveVoiceOccurence = 0;
+        double passiveVoiceDuration = 1.0;
+        int win_length = recordBufsize / 2;
+        int passVoiceMaxOccurence = (int) (sampleRateInHz * passiveVoiceDuration / win_length);
+
+
+
         while (isRecord == true) {
             readsize = audioRecord.read(audiodata, 0, recordBufsize);
 //            Log.d(TAG, "writeDateTOFile: readsize --> " + readsize);
@@ -247,31 +254,82 @@ public class MainPage extends Activity {
             PyObject obj = pyObject.callAttr("speechratio", shorts, sampleRateInHz);
             double speechratio = obj.toDouble();
 
-            if (speechratio >= threshold) {
-                on = true;
-                start = false;
-                Log.d(TAG, "Triggered "  + speechratio + " --> " + off_counter);
-            } else {
-                if (!on && !start) {
-                    off_counter++;
-                } else {
-                    on = false;
-                    off_counter = 0;
+            if (speechratio >= threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+                activeListening = true;
+                passiveVoiceOccurence = 0;
+            } else if (speechratio >= threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+                throw new java.lang.Error("Program should not enter this branch!");
+            } else if (speechratio < threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+                if (activeListening) {
+                    if (passiveVoiceOccurence < passVoiceMaxOccurence) {
+                        passiveVoiceOccurence++;
+                    } else {
+                        Log.d(TAG, "reaching passive Voice Occurence tolerence: " + passVoiceMaxOccurence);
+
+                        activeListening = false;
+                        passiveVoiceOccurence = 0;
+
+                        // close current temp file
+                        try {
+                            fos.close();// 关闭写入流
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        Long tsLong = System.currentTimeMillis()/1000;
+                        String ts = tsLong.toString();
+                        String filename = wavFilename.substring(0, wavFilename.length() - 4) + "_" + ts + ".wav";
+                        //   and create a wav file with header based on temp file
+                        copyWaveFile(rawFilename, filename);//给裸数据加上头文件
+                        Log.d(TAG, "save wav file: " + filename);
+
+                        ////////////////////////////////////////////////
+                        if (!Python.isStarted()) {
+                            Python.start(new AndroidPlatform(MainPage.this));
+                        }
+                        Python python2 = Python.getInstance();
+                        String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
+                        PyObject pyObject2 = python2.getModule("hello");
+                        PyObject obj2 = pyObject2.callAttr("speechcorrelation", filename1, filename);
+
+//                        Toast.makeText(MainPage.this, "Score: " + String.valueOf(obj2.toInt()), Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Score: " + String.valueOf(obj2.toInt()));
+
+                        if (obj2.toInt() > 15) {
+                            Log.d(TAG, "Switch to Voice Content Library");
+
+                            Intent intent = new Intent(MainPage.this, VoiceCommandLibrary.class);
+                            startActivity(intent);
+                        }
+
+
+                        /////////////
+
+
+                        // prepare a new temp file
+                        try {
+                            File file = new File(rawFilename);
+                            if (file.exists()) {
+                                file.delete();
+                            }
+                            fos = new FileOutputStream(file);// 建立一个可存取字节的文件
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }  else {
+                    assert passiveVoiceOccurence == 0 : "Not active listening yet; so no passive occurence either";
                 }
+            } else if (speechratio < threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+                throw new java.lang.Error("Program should not enter this branch!");
             }
 
-            if (off_counter > 60) {
-                threshold = 1.1;
-                Log.d(TAG, "conversion " + counter + ": " + speechratio + " --> " + off_counter);
-            }
+            Log.d(TAG, "ratio: " + speechratio +  ": active Listening: " + activeListening + "; passive Voice Occurence: " + passiveVoiceOccurence );
 
             byte[] audiodata2 = new byte[recordBufsize];
             // to turn shorts back to bytes.
             ByteBuffer.wrap(audiodata2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(shorts);
 
-
-
-            if (AudioRecord.ERROR_INVALID_OPERATION != readsize && !start && off_counter < 30) {
+            if (AudioRecord.ERROR_INVALID_OPERATION != readsize && activeListening) {
                 try {
                     fos.write(audiodata2);
                 } catch (IOException e) {
@@ -286,7 +344,6 @@ public class MainPage extends Activity {
             e.printStackTrace();
         }
     }
-
     // 这里得到可播放的音频文件
     private void copyWaveFile(String inFilename, String outFilename) {
         FileInputStream in = null;
@@ -373,4 +430,3 @@ public class MainPage extends Activity {
         out.write(header, 0, 44);
     }
 }
-

@@ -32,6 +32,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 
 public class AddNewVoiceCommand extends Activity {
@@ -73,6 +75,7 @@ public class AddNewVoiceCommand extends Activity {
     private static final String TAG = "Add New Voice Command: ";
 
 
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -96,37 +99,46 @@ public class AddNewVoiceCommand extends Activity {
         record2.setEnabled(false);
         stop2.setEnabled(false);
         play2.setEnabled(false);
-        check.setEnabled(false);
+        check.setEnabled(true);
 
         record.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
 
-                if (CheckPermission()) {
-                    Log.d(TAG, "buttonStart.setOnClickListener: checked permission");
+                if (isRecord) {
+                    stopRecord();
+                    Log.d(TAG, "Not recording");
 
-                    AudioRecorderReady();
-
-                    try {
-                        startRecord("record.wav");
-                    } catch (IllegalStateException e) {
-                        e.printStackTrace();
-                    }
-                    record.setEnabled(false);
-                    stop.setEnabled(true);
-                    play.setEnabled(false);
-                    save.setEnabled(false);
-                    record2.setEnabled(false);
-                    stop2.setEnabled(false);
-
-                    Toast.makeText(AddNewVoiceCommand.this, "Recording Started", Toast.LENGTH_SHORT).show();
                 } else {
-                    Log.d(TAG, "buttonStart.setOnClickListener: RequestPermission");
-                    RequestPermission();
-                }
+                    Log.d(TAG, "Is recording");
+                    if (CheckPermission()) {
+                        Log.d(TAG, "buttonStart.setOnClickListener: checked permission");
 
+                        AudioRecorderReady();
+
+                        try {
+                            startRecord("record.wav");
+                        } catch (IllegalStateException e) {
+                            e.printStackTrace();
+                        }
+
+                        record.setEnabled(false);
+                        stop.setEnabled(true);
+                        play.setEnabled(false);
+                        save.setEnabled(false);
+                        record2.setEnabled(false);
+                        stop2.setEnabled(false);
+
+                        Toast.makeText(AddNewVoiceCommand.this, "Recording Started", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Log.d(TAG, "buttonStart.setOnClickListener: RequestPermission");
+                        RequestPermission();
+                    }
+
+                }
             }
         });
+
 
         stop.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -271,10 +283,10 @@ public class AddNewVoiceCommand extends Activity {
                 String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
                 String filename2 = getFilesDir().getAbsolutePath() + "/record2.wav";
                 PyObject pyObject = python.getModule("hello");
-                PyObject obj = pyObject.callAttr("fftcorrcoeff", filename1, filename2);
+                PyObject obj = pyObject.callAttr("speechcorrelation", filename1, filename2);
 
                 TextView text1=(TextView)findViewById(R.id.addnewvoicecommandcorrcoeff);
-                text1.setText(obj.toString());
+                text1.setText(String.valueOf(obj.toInt()));
 
                 mImageView = (ImageView) findViewById(R.id.image3);
                 mImageView.setImageBitmap(BitmapFactory.decodeFile(getFilesDir().getAbsolutePath() + "/record2.wav_aligned.png"));
@@ -305,7 +317,8 @@ public class AddNewVoiceCommand extends Activity {
     }
 
     private void AudioRecorderReady() {
-        recordBufsize = AudioRecord.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
+//        recordBufsize = AudioRecord.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
+        recordBufsize = 2048*2;
         Log.d(TAG, "AudioRecorderReady: size --> " + recordBufsize);
 
         try {
@@ -366,8 +379,7 @@ public class AddNewVoiceCommand extends Activity {
         AudioRecordThread(String s) {wavFilename = s; }
         @Override
         public void run() {
-            writeDateTOFile(rawFilename);//往文件中写入裸数据
-            copyWaveFile(rawFilename, wavFilename);//给裸数据加上头文件
+            writeDateTOFile(rawFilename, wavFilename);//往文件中写入裸数据
         }
     }
 
@@ -376,7 +388,7 @@ public class AddNewVoiceCommand extends Activity {
      * 如果需要播放就必须加入一些格式或者编码的头信息。但是这样的好处就是你可以对音频的 裸数据进行处理，比如你要做一个爱说话的TOM
      * 猫在这里就进行音频的处理，然后重新封装 所以说这样得到的音频比较容易做一些音频的处理。
      */
-    private void writeDateTOFile(String rawname) {
+    private void writeDateTOFile(String rawFilename, String wavFilename) {
         // new一个byte数组用来存一些字节数据，大小为缓冲区大小
         Log.d(TAG, "writeDateTOFile: size --> " + recordBufsize);
 
@@ -384,7 +396,7 @@ public class AddNewVoiceCommand extends Activity {
         FileOutputStream fos = null;
         int readsize = 0;
         try {
-            File file = new File( rawname);
+            File file = new File( rawFilename);
             if (file.exists()) {
                 file.delete();
             }
@@ -392,17 +404,87 @@ public class AddNewVoiceCommand extends Activity {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        int counter = 0;
+        boolean on = false;
+        double threshold = 20.0;
+        boolean start = true;
+        int off_counter = 0;
+
+
+        // active listening --> active voice occurred before and pass voice occurence never > 1 second
+        boolean activeListening = false;
+        int passiveVoiceOccurence = 0;
+        double passiveVoiceDuration = 1.0;
+        int win_length = recordBufsize / 2;
+        int passVoiceMaxOccurence = (int) (sampleRateInHz * passiveVoiceDuration / win_length);
+
+
+
         while (isRecord == true) {
             readsize = audioRecord.read(audiodata, 0, recordBufsize);
-            Log.d(TAG, "writeDateTOFile: readsize --> " + readsize);
+//            Log.d(TAG, "writeDateTOFile: readsize --> " + readsize);
+            short[] shorts = new short[audiodata.length/2];
+            // https://stackoverflow.com/questions/5625573/byte-array-to-short-array-and-back-again-in-java
+            // to turn bytes to shorts as either big endian or little endian.
+            ByteBuffer.wrap(audiodata).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
 
-            if (AudioRecord.ERROR_INVALID_OPERATION != readsize) {
+
+            if (!Python.isStarted()) {
+                Python.start(new AndroidPlatform(AddNewVoiceCommand.this));
+            }
+            Python python = Python.getInstance();
+            PyObject pyObject = python.getModule("hello");
+            PyObject obj = pyObject.callAttr("speechratio", shorts, sampleRateInHz);
+            double speechratio = obj.toDouble();
+
+            if (speechratio >= threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+                activeListening = true;
+                passiveVoiceOccurence = 0;
+            } else if (speechratio >= threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+                throw new java.lang.Error("Program should not enter this branch!");
+            } else if (speechratio < threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+                if (activeListening) {
+                    if (passiveVoiceOccurence < passVoiceMaxOccurence) {
+                        passiveVoiceOccurence++;
+                    } else {
+                        Log.d(TAG, "reaching passive Voice Occurence tolerence: " + passVoiceMaxOccurence);
+
+                        activeListening = false;
+                        passiveVoiceOccurence = 0;
+
+                        // close current temp file
+                        try {
+                            fos.close();// 关闭写入流
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+//                        Long tsLong = System.currentTimeMillis()/1000;
+//                        String ts = tsLong.toString();
+                        //   and create a wav file with header based on temp file
+                        copyWaveFile(rawFilename, wavFilename);//给裸数据加上头文件
+                        Log.d(TAG, "save wav file: " + wavFilename);
+                    }
+                }  else {
+                    assert passiveVoiceOccurence == 0 : "Not active listening yet; so no passive occurence either";
+                }
+            } else if (speechratio < threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+                throw new java.lang.Error("Program should not enter this branch!");
+            }
+
+            Log.d(TAG, "ratio: " + speechratio +  ": active Listening: " + activeListening + "; passive Voice Occurence: " + passiveVoiceOccurence );
+
+            byte[] audiodata2 = new byte[recordBufsize];
+            // to turn shorts back to bytes.
+            ByteBuffer.wrap(audiodata2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(shorts);
+
+            if (AudioRecord.ERROR_INVALID_OPERATION != readsize && activeListening) {
                 try {
-                    fos.write(audiodata);
+                    fos.write(audiodata2);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
+            counter = counter + 1;
         }
         try {
             fos.close();// 关闭写入流
@@ -410,7 +492,6 @@ public class AddNewVoiceCommand extends Activity {
             e.printStackTrace();
         }
     }
-
     // 这里得到可播放的音频文件
     private void copyWaveFile(String inFilename, String outFilename) {
         FileInputStream in = null;
