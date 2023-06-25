@@ -10,13 +10,9 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.chaquo.python.PyObject;
-import com.chaquo.python.Python;
-import com.chaquo.python.android.AndroidPlatform;
-
 import java.io.IOException;
 
-public class VoiceContentLibrary extends Activity {
+public class VoiceCommandLibrary extends Activity {
     TextView popularvoicecommands;
     TextView allvoicecommands;
     TextView voicecommand1;
@@ -30,7 +26,7 @@ public class VoiceContentLibrary extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.voicecontentlibrary);
+        setContentView(R.layout.voicecommandlibrary);
 
         Log.d(TAG, "Voice Content Library Opened");
 
@@ -62,7 +58,7 @@ public class VoiceContentLibrary extends Activity {
                 Log.d(TAG, getFilesDir().getAbsolutePath() + "/" +voicecommand1filename + " is loaded");
 
                 mediaPlayer.start();
-                Toast.makeText(VoiceContentLibrary.this, voicecommand1name + " is playing", Toast.LENGTH_SHORT).show();
+                Toast.makeText(VoiceCommandLibrary.this, voicecommand1name + " is playing", Toast.LENGTH_SHORT).show();
 
                 mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                     @Override
@@ -85,7 +81,7 @@ public class VoiceContentLibrary extends Activity {
             @Override
             public void onClick(View view) {
                 Log.d(TAG, "Switch to Add New Voice Command");
-                Intent intent = new Intent(VoiceContentLibrary.this, AddNewVoiceCommand.class);
+                Intent intent = new Intent(VoiceCommandLibrary.this, AddNewVoiceCommand.class);
                 startActivity(intent);
             }
         });
@@ -95,7 +91,7 @@ public class VoiceContentLibrary extends Activity {
             @Override
             public void onClick(View view) {
                 Log.d(TAG, "Return to Main Page");
-                Intent intent = new Intent(VoiceContentLibrary.this, MainPage.class);
+                Intent intent = new Intent(VoiceCommandLibrary.this, MainPage.class);
                 startActivity(intent);
             }
         });

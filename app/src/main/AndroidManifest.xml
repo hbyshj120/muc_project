@@ -35,7 +35,7 @@ c
             android:exported="false" />
 
         <activity
-            android:name=".VoiceContentLibrary"
+            android:name=".VoiceCommandLibrary"
             android:exported="false" />
 
         <activity
