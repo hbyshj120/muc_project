@@ -160,7 +160,7 @@ public class AddNewVoiceCommand extends Activity {
                 }
                 Python python = Python.getInstance();
                 String NewAudioName = getFilesDir().getAbsolutePath() + "/record.wav";
-                PyObject pyObject = python.getModule("hello");
+                PyObject pyObject = python.getModule("voicerecognizer");
                 List<PyObject> obj = pyObject.callAttr("process", NewAudioName).asList();
 
                 mImageView = (ImageView) findViewById(R.id.image1);
@@ -259,7 +259,7 @@ public class AddNewVoiceCommand extends Activity {
                 }
                 Python python = Python.getInstance();
                 String NewAudioName = getFilesDir().getAbsolutePath() + "/record2.wav";
-                PyObject pyObject = python.getModule("hello");
+                PyObject pyObject = python.getModule("voicerecognizer");
                 List<PyObject> obj = pyObject.callAttr("process", NewAudioName).asList();
 
                 mImageView = (ImageView) findViewById(R.id.image2);
@@ -282,7 +282,7 @@ public class AddNewVoiceCommand extends Activity {
                 Python python = Python.getInstance();
                 String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
                 String filename2 = getFilesDir().getAbsolutePath() + "/record2.wav";
-                PyObject pyObject = python.getModule("hello");
+                PyObject pyObject = python.getModule("voicerecognizer");
                 PyObject obj = pyObject.callAttr("speechcorrelation", filename1, filename2);
 
                 TextView text1=(TextView)findViewById(R.id.addnewvoicecommandcorrcoeff);
@@ -433,7 +433,7 @@ public class AddNewVoiceCommand extends Activity {
                 Python.start(new AndroidPlatform(AddNewVoiceCommand.this));
             }
             Python python = Python.getInstance();
-            PyObject pyObject = python.getModule("hello");
+            PyObject pyObject = python.getModule("voicerecognizer");
             PyObject obj = pyObject.callAttr("speechratio", shorts, sampleRateInHz);
             double speechratio = obj.toDouble();
 

@@ -88,7 +88,7 @@ def fftcorrcoeff(filename1, filename2):
 
     return R[0, 1]
 
-def speechratio(shorts, samplerate, fl = 100, fh = 3000):
+def speechratio(shorts, samplerate, fl = 100, fh = 3000, threshold = 200):
 
     # print("speechratio shorts length: ", len(shorts))
 
@@ -97,9 +97,11 @@ def speechratio(shorts, samplerate, fl = 100, fh = 3000):
     # print("df: ", df, "nl: ", nl, "nh: ", nh)
 
     power = np.abs(np.fft.rfft(shorts, n=len(shorts)))**2.
-    [total, speech] = [np.sum(power), np.sum(power[nl:nh])]
-    ratio = 20*np.log10(speech / (total - speech))
-    # print("total: ", total, "speech: ", speech,  "ratio: ", ratio)
+    [total, speech] = [20*np.log10(np.sum(power)), 20*np.log10(np.sum(power) - np.sum(power[nl:nh]))]
+    if total < threshold:
+        return 0
+    ratio = total - speech
+    print("total: ", total, "speech: ", speech,  "ratio: ", ratio)
 
     return ratio
 
@@ -141,6 +143,9 @@ def speechcorrelation(filename1, filename2, threshold = 25):
     flag2 = np.float64(ratio2 > 25.)
     flag2 = scipy.signal.medfilt(flag2, 5)
     comb2 = flag2[:-1] + flag2[1:]
+    if not np.any(comb2):
+        # comb2 are all zeros
+        return -100
     print("comb2: ", comb2)
     index2 = np.where(comb2==1.0)[0]
     if flag2[0]:

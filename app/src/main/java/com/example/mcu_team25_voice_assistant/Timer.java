@@ -12,10 +12,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 // reference: https://stackoverflow.com/questions/10032003/how-to-make-a-countdown-timer-in-android
-public class CounterDownTimer extends Activity {
+public class Timer extends Activity {
 
     TextView text1;
-    private static final String TAG = "CounterDownTimer";
+    private static final String TAG = "Timer";
 
     private static final String FORMAT = "%02d:%02d:%02d";
 
@@ -25,11 +25,11 @@ public class CounterDownTimer extends Activity {
     public void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main_page);
+        setContentView(R.layout.timer);
 
         text1=(TextView)findViewById(R.id.textView1);
 
-        int time_duration_in_seconds = getIntent().getIntExtra("time_duration_in_seconds", 31);
+        int time_duration_in_seconds = getIntent().getIntExtra("time_duration_in_seconds", 30);
         int COUNTDWON_INTERVAL = 1000;
         int Total_millis_counts = COUNTDWON_INTERVAL * time_duration_in_seconds;
         new CountDownTimer(Total_millis_counts, COUNTDWON_INTERVAL) { // adjust the milli seconds here
@@ -56,12 +56,12 @@ public class CounterDownTimer extends Activity {
                 Log.d(TAG, getFilesDir().getAbsolutePath()+"/beep.wav");
 
                 mediaPlayer.start();
-                Toast.makeText(CounterDownTimer.this, "Countdown Finished!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(Timer.this, "Timer Finished!", Toast.LENGTH_SHORT).show();
 
                 mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                     @Override
                     public void onCompletion(MediaPlayer mp) {
-                        Intent intent = new Intent(CounterDownTimer.this, FitnessMate.class);
+                        Intent intent = new Intent(Timer.this, MainPage.class);
                         startActivity(intent);
                     }
                 });

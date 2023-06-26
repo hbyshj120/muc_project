@@ -68,23 +68,15 @@ public class MainPage extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.mainpage);
 
-        if (! Python.isStarted()) {
-            Python.start(new AndroidPlatform(this));
-        }
-        Python python = Python.getInstance();
-        String NewAudioName = getFilesDir().getAbsolutePath() + "/new.wav";
-        PyObject pyObject = python.getModule("hello");
-        PyObject obj = pyObject.callAttr("process", NewAudioName);
-
-        Log.d(TAG, obj.toString());
-
         Log.d(TAG, "Main Page Opened");
 
         voice_content_library = findViewById(R.id.voice_content_library);
         voice_content_library.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                stopRecord();
                 Log.d(TAG, "Switch to Voice Content Library");
+
 
                 Intent intent = new Intent(MainPage.this, VoiceCommandLibrary.class);
                 startActivity(intent);
@@ -95,12 +87,14 @@ public class MainPage extends Activity {
         exit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                stopRecord();
                 Log.d(TAG, "Exit the App");
                 finishAffinity();
             }
         });
 
         voicecommand = findViewById(R.id.voicecommand);
+
         voicecommand.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -128,6 +122,9 @@ public class MainPage extends Activity {
 
             }
         });
+
+        voicecommand.performClick();
+
 
     }
 
@@ -250,7 +247,7 @@ public class MainPage extends Activity {
                 Python.start(new AndroidPlatform(MainPage.this));
             }
             Python python = Python.getInstance();
-            PyObject pyObject = python.getModule("hello");
+            PyObject pyObject = python.getModule("voicerecognizer");
             PyObject obj = pyObject.callAttr("speechratio", shorts, sampleRateInHz);
             double speechratio = obj.toDouble();
 
@@ -288,7 +285,7 @@ public class MainPage extends Activity {
                         }
                         Python python2 = Python.getInstance();
                         String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
-                        PyObject pyObject2 = python2.getModule("hello");
+                        PyObject pyObject2 = python2.getModule("voicerecognizer");
                         PyObject obj2 = pyObject2.callAttr("speechcorrelation", filename1, filename);
 
 //                        Toast.makeText(MainPage.this, "Score: " + String.valueOf(obj2.toInt()), Toast.LENGTH_SHORT).show();
@@ -297,8 +294,16 @@ public class MainPage extends Activity {
                         if (obj2.toInt() > 15) {
                             Log.d(TAG, "Switch to Voice Content Library");
 
-                            Intent intent = new Intent(MainPage.this, VoiceCommandLibrary.class);
-                            startActivity(intent);
+//                            Intent intent = new Intent(MainPage.this, VoiceCommandLibrary.class);
+//                            startActivity(intent);
+                            isRecord = false;
+                            // https://stackoverflow.com/questions/49738997/calling-a-new-activity-from-within-runnable
+                            runOnUiThread(new Runnable() {
+                                public void run() {
+                                    Intent show = new Intent(MainPage.this, Timer.class);
+                                    startActivity(show);
+                                }
+                            });
                         }
 
 
@@ -430,3 +435,4 @@ public class MainPage extends Activity {
         out.write(header, 0, 44);
     }
 }
+

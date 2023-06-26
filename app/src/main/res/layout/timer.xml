@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="30sp"
-    tools:context=".CounterDownTimer">
+    tools:context=".Timer">
     <!--    tools:context=".Microphone_Data_Collection">-->
 
     <EditText
