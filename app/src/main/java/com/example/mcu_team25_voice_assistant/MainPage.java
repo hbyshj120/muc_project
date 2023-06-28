@@ -218,15 +218,16 @@ public class MainPage extends Activity {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        int counter = 0;
-        boolean on = false;
-        double threshold = 20.0;
-        boolean start = true;
-        int off_counter = 0;
+
+        double vad_threshold = 40.0;
+        double speech_threshold = 80.0;
+
 
 
         // active listening --> active voice occurred before and pass voice occurence never > 1 second
         boolean activeListening = false;
+        int activeVoiceOccurence= 0;
+        int activeVoiceDuration = 2;
         int passiveVoiceOccurence = 0;
         double passiveVoiceDuration = 1.0;
         int win_length = recordBufsize / 2;
@@ -251,17 +252,19 @@ public class MainPage extends Activity {
             PyObject obj = pyObject.callAttr("speechratio", shorts, sampleRateInHz);
             double speechratio = obj.toDouble();
 
-            if (speechratio >= threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+            if (speechratio >= vad_threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
                 activeListening = true;
                 passiveVoiceOccurence = 0;
-            } else if (speechratio >= threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+                activeVoiceOccurence++;
+            } else if (speechratio >= vad_threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
                 throw new java.lang.Error("Program should not enter this branch!");
-            } else if (speechratio < threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+            } else if (speechratio < vad_threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
                 if (activeListening) {
                     if (passiveVoiceOccurence < passVoiceMaxOccurence) {
                         passiveVoiceOccurence++;
                     } else {
                         Log.d(TAG, "reaching passive Voice Occurence tolerence: " + passVoiceMaxOccurence);
+                        Log.d(TAG, "=======================================================================");
 
                         activeListening = false;
                         passiveVoiceOccurence = 0;
@@ -272,44 +275,43 @@ public class MainPage extends Activity {
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-                        Long tsLong = System.currentTimeMillis()/1000;
-                        String ts = tsLong.toString();
-                        String filename = wavFilename.substring(0, wavFilename.length() - 4) + "_" + ts + ".wav";
-                        //   and create a wav file with header based on temp file
-                        copyWaveFile(rawFilename, filename);//给裸数据加上头文件
-                        Log.d(TAG, "save wav file: " + filename);
 
-                        ////////////////////////////////////////////////
-                        if (!Python.isStarted()) {
-                            Python.start(new AndroidPlatform(MainPage.this));
-                        }
-                        Python python2 = Python.getInstance();
-                        String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
-                        PyObject pyObject2 = python2.getModule("voicerecognizer");
-                        PyObject obj2 = pyObject2.callAttr("speechcorrelation", filename1, filename);
+                        if (activeVoiceOccurence >= activeVoiceDuration) {
+
+                            Long tsLong = System.currentTimeMillis() / 1000;
+                            String ts = tsLong.toString();
+                            String filename = wavFilename.substring(0, wavFilename.length() - 4) + "_" + ts + ".wav";
+                            //   and create a wav file with header based on temp file
+                            copyWaveFile(rawFilename, filename);//给裸数据加上头文件
+                            Log.d(TAG, "save wav file: " + filename);
+
+                            ////////////////////////////////////////////////
+                            if (!Python.isStarted()) {
+                                Python.start(new AndroidPlatform(MainPage.this));
+                            }
+                            Python python2 = Python.getInstance();
+                            String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
+                            PyObject pyObject2 = python2.getModule("voicerecognizer");
+                            PyObject obj2 = pyObject2.callAttr("speechcorrelation", filename1, filename);
 
 //                        Toast.makeText(MainPage.this, "Score: " + String.valueOf(obj2.toInt()), Toast.LENGTH_SHORT).show();
-                        Log.d(TAG, "Score: " + String.valueOf(obj2.toInt()));
+                            Log.d(TAG, "Score: " + String.valueOf(obj2.toInt()));
 
-                        if (obj2.toInt() > 15) {
-                            Log.d(TAG, "Switch to Voice Content Library");
+                            if (obj2.toInt() > speech_threshold) {
+                                Log.d(TAG, "Switch to Voice Content Library");
 
 //                            Intent intent = new Intent(MainPage.this, VoiceCommandLibrary.class);
 //                            startActivity(intent);
-                            isRecord = false;
-                            // https://stackoverflow.com/questions/49738997/calling-a-new-activity-from-within-runnable
-                            runOnUiThread(new Runnable() {
-                                public void run() {
-                                    Intent show = new Intent(MainPage.this, Timer.class);
-                                    startActivity(show);
-                                }
-                            });
+                                isRecord = false;
+                                // https://stackoverflow.com/questions/49738997/calling-a-new-activity-from-within-runnable
+                                runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        Intent show = new Intent(MainPage.this, Timer.class);
+                                        startActivity(show);
+                                    }
+                                });
+                            }
                         }
-
-
-                        /////////////
-
-
                         // prepare a new temp file
                         try {
                             File file = new File(rawFilename);
@@ -320,28 +322,29 @@ public class MainPage extends Activity {
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
+
+                        activeVoiceOccurence = 0;
                     }
                 }  else {
                     assert passiveVoiceOccurence == 0 : "Not active listening yet; so no passive occurence either";
                 }
-            } else if (speechratio < threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+            } else if (speechratio < vad_threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
                 throw new java.lang.Error("Program should not enter this branch!");
             }
-
-            Log.d(TAG, "ratio: " + speechratio +  ": active Listening: " + activeListening + "; passive Voice Occurence: " + passiveVoiceOccurence );
 
             byte[] audiodata2 = new byte[recordBufsize];
             // to turn shorts back to bytes.
             ByteBuffer.wrap(audiodata2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(shorts);
 
             if (AudioRecord.ERROR_INVALID_OPERATION != readsize && activeListening) {
+                Log.d(TAG, "ratio: " + speechratio +  ": active Listening: " + activeListening +  "; active Voice Occurence: " + activeVoiceOccurence + "; passive Voice Occurence: " + passiveVoiceOccurence );
+
                 try {
                     fos.write(audiodata2);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-            counter = counter + 1;
         }
         try {
             fos.close();// 关闭写入流
@@ -420,7 +423,7 @@ public class MainPage extends Activity {
         header[29] = (byte) ((byteRate >> 8) & 0xff);
         header[30] = (byte) ((byteRate >> 16) & 0xff);
         header[31] = (byte) ((byteRate >> 24) & 0xff);
-        header[32] = (byte) (2 * 16 / 8); // block align
+        header[32] = (byte) (1 * 16 / 8); // block align
         header[33] = 0;
         header[34] = 16; // bits per sample
         header[35] = 0;

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy import signal
 import numpy as np
 from scipy.fftpack import fft, fftfreq
-
+import os.path
 def process(filename):
     print("JH", filename)
     samplerate, data = wavfile.read(filename)
@@ -88,26 +88,26 @@ def fftcorrcoeff(filename1, filename2):
 
     return R[0, 1]
 
-def speechratio(shorts, samplerate, fl = 100, fh = 3000, threshold = 200):
-
-    # print("speechratio shorts length: ", len(shorts))
-
-    df = samplerate/len(shorts)
+def speechratio(shorts, samplerate, fl = 50., fh = 4000., threshold = 30):
+    df = samplerate*1.0/len(shorts)
     [nl, nh] = [int(fl/df), int(fh/df)]
-    # print("df: ", df, "nl: ", nl, "nh: ", nh)
 
-    power = np.abs(np.fft.rfft(shorts, n=len(shorts)))**2.
-    [total, speech] = [20*np.log10(np.sum(power)), 20*np.log10(np.sum(power) - np.sum(power[nl:nh]))]
-    if total < threshold:
+    power = np.abs(np.fft.rfft(shorts, n=len(shorts))/32768.)**2
+
+    [speech, nonspeech] = [20*np.log10(np.sum(power[nl:nh])), 20*np.log10(np.sum(power) - np.sum(power[nl:nh]))]
+    ratio = speech - nonspeech
+    if 20*np.log10(np.sum(power)) < threshold:
         return 0
-    ratio = total - speech
-    print("total: ", total, "speech: ", speech,  "ratio: ", ratio)
+    # else:
+    #     print("speech: ", speech, "nonspeech: ", nonspeech,  "ratio: ", ratio, 20.*np.log10(np.sum(power)))
+
 
     return ratio
 
 
 def speechratios(filename, win_length = 2048, hop_length = 512):
     samplerate, y = wavfile.read(filename)
+
     overlap = win_length - hop_length
     rest_samples = np.abs(len(y) - overlap) % np.abs(win_length - overlap)
     pad_signal = np.append(y, np.array([0] * int(hop_length - rest_samples) * int(rest_samples != 0.)))
@@ -123,12 +123,15 @@ def speechratios(filename, win_length = 2048, hop_length = 512):
         # print(i, ratios[i])
     return y, ratios
 
-def speechcorrelation(filename1, filename2, threshold = 25):
-    y1, ratio1 = speechratios(filename1, win_length = 2048, hop_length = 512)
-    y2, ratio2 = speechratios(filename2, win_length = 2048, hop_length = 512)
+def speechcorrelation(filename1, filename2, win_length = 2048, hop_length = 512, threshold = 20):
+    if not os.path.exists(filename1):
+        return 0
+    y1, ratio1 = speechratios(filename1, win_length = win_length, hop_length = hop_length)
+    y2, ratio2 = speechratios(filename2, win_length = win_length, hop_length = hop_length)
 
     #################
-    flag1 = np.float64(ratio1 > 25.)
+    print("ratio1: ", ratio1)
+    flag1 = np.float64(ratio1 > threshold)
     flag1 = scipy.signal.medfilt(flag1, 5)
     comb1 = flag1[:-1] + flag1[1:]
     print("comb1: ", comb1)
@@ -140,7 +143,8 @@ def speechcorrelation(filename1, filename2, threshold = 25):
     if len(index1) % 2 == 1:
         raise ValueError("some singular value needed to take care of in index")
 
-    flag2 = np.float64(ratio2 > 25.)
+    print("ratio2: ", ratio2)
+    flag2 = np.float64(ratio2 > threshold)
     flag2 = scipy.signal.medfilt(flag2, 5)
     comb2 = flag2[:-1] + flag2[1:]
     if not np.any(comb2):
@@ -158,14 +162,14 @@ def speechcorrelation(filename1, filename2, threshold = 25):
     ########
     fig, (ax1, ax2) = plt.subplots(2, sharex = True)
     # fig.suptitle('check repeatability')
-    ax1.plot(np.repeat(ratio1, 512))
-    ax1.plot(y1/np.max(y1)*np.max(ratio1))
+    ax1.plot(np.repeat(ratio1, hop_length))
+    ax1.plot(y1*1.0/np.max(y1)*np.max(ratio1))
     for xc in index1:
-        ax1.axvline(x = xc*512)
-    ax2.plot(np.repeat(ratio2, 512))
-    ax2.plot(y2/np.max(y2)*np.max(ratio2))
+        ax1.axvline(x = xc*hop_length)
+    ax2.plot(np.repeat(ratio2, hop_length))
+    ax2.plot(y2*1.0/np.max(y2)*np.max(ratio2))
     for xc in index2:
-        ax2.axvline(x = xc*512)
+        ax2.axvline(x = xc*hop_length)
     # plt.show()
     plt.savefig(filename2+'_aligned.png')
 
@@ -176,7 +180,7 @@ def speechcorrelation(filename1, filename2, threshold = 25):
 
     comb_ratio2 = np.empty(0)
     for i in range(0, len(index2), 2):
-        comb_ratio2 = np.concatenate((comb_ratio2, ratio1[index2[i]:index2[i+1]+1]))
+        comb_ratio2 = np.concatenate((comb_ratio2, ratio2[index2[i]:index2[i+1]+1]))
 
     ##############
     diff = len(comb_ratio1) - len(comb_ratio2)
@@ -192,9 +196,13 @@ def speechcorrelation(filename1, filename2, threshold = 25):
         comb_ratio2 = np.delete(comb_ratio2, np.arange(len(comb_ratio1) - right, len(comb_ratio1)),  0)
         comb_ratio2 = np.delete(comb_ratio2, np.arange(0, left),  0)
 
-    print(comb_ratio1.shape, comb_ratio2.shape)
+    print(comb_ratio1, comb_ratio2)
 
     R = np.corrcoef(comb_ratio1, comb_ratio2)
 
-    return int(R[0, 1] * 100)
+    if np.isnan(R[0, 1]):
+        R[0, 1] = 0
 
+    print(filename1, filename2, R[0, 1])
+
+    return int(R[0, 1] * 100)

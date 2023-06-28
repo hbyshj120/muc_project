@@ -29,7 +29,7 @@ public class Timer extends Activity {
 
         text1=(TextView)findViewById(R.id.textView1);
 
-        int time_duration_in_seconds = getIntent().getIntExtra("time_duration_in_seconds", 30);
+        int time_duration_in_seconds = getIntent().getIntExtra("time_duration_in_seconds", 10);
         int COUNTDWON_INTERVAL = 1000;
         int Total_millis_counts = COUNTDWON_INTERVAL * time_duration_in_seconds;
         new CountDownTimer(Total_millis_counts, COUNTDWON_INTERVAL) { // adjust the milli seconds here

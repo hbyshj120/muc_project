@@ -96,7 +96,7 @@ public class AddNewVoiceCommand extends Activity {
         stop.setEnabled(false);
         play.setEnabled(false);
         save.setEnabled(false);
-        record2.setEnabled(false);
+        record2.setEnabled(true);
         stop2.setEnabled(false);
         play2.setEnabled(false);
         check.setEnabled(true);
@@ -404,15 +404,16 @@ public class AddNewVoiceCommand extends Activity {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        int counter = 0;
-        boolean on = false;
-        double threshold = 20.0;
-        boolean start = true;
-        int off_counter = 0;
+
+        double vad_threshold = 40.0;
+        double speech_threshold = 50.0;
+
 
 
         // active listening --> active voice occurred before and pass voice occurence never > 1 second
         boolean activeListening = false;
+        int activeVoiceOccurence= 0;
+        int activeVoiceDuration = 2;
         int passiveVoiceOccurence = 0;
         double passiveVoiceDuration = 1.0;
         int win_length = recordBufsize / 2;
@@ -437,17 +438,19 @@ public class AddNewVoiceCommand extends Activity {
             PyObject obj = pyObject.callAttr("speechratio", shorts, sampleRateInHz);
             double speechratio = obj.toDouble();
 
-            if (speechratio >= threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+            if (speechratio >= vad_threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
                 activeListening = true;
                 passiveVoiceOccurence = 0;
-            } else if (speechratio >= threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+                activeVoiceOccurence++;
+            } else if (speechratio >= vad_threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
                 throw new java.lang.Error("Program should not enter this branch!");
-            } else if (speechratio < threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
+            } else if (speechratio < vad_threshold && passiveVoiceOccurence <= passVoiceMaxOccurence) {
                 if (activeListening) {
                     if (passiveVoiceOccurence < passVoiceMaxOccurence) {
                         passiveVoiceOccurence++;
                     } else {
                         Log.d(TAG, "reaching passive Voice Occurence tolerence: " + passVoiceMaxOccurence);
+                        Log.d(TAG, "=======================================================================");
 
                         activeListening = false;
                         passiveVoiceOccurence = 0;
@@ -458,34 +461,53 @@ public class AddNewVoiceCommand extends Activity {
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-//                        Long tsLong = System.currentTimeMillis()/1000;
-//                        String ts = tsLong.toString();
-                        //   and create a wav file with header based on temp file
-                        copyWaveFile(rawFilename, wavFilename);//给裸数据加上头文件
-                        Log.d(TAG, "save wav file: " + wavFilename);
+
+                        if (activeVoiceOccurence >= activeVoiceDuration) {
+
+//                            Long tsLong = System.currentTimeMillis() / 1000;
+//                            String ts = tsLong.toString();
+//                            String filename = wavFilename.substring(0, wavFilename.length() - 4) + "_" + ts + ".wav";
+                            //   and create a wav file with header based on temp file
+                            copyWaveFile(rawFilename, wavFilename);//给裸数据加上头文件
+                            Log.d(TAG, "save wav file: " + wavFilename);
+                            isRecord = false;
+                        }
+
+                        // prepare a new temp file
+                        try {
+                            File file = new File(rawFilename);
+                            if (file.exists()) {
+                                file.delete();
+                            }
+                            fos = new FileOutputStream(file);// 建立一个可存取字节的文件
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
+                        activeVoiceOccurence = 0;
                     }
                 }  else {
                     assert passiveVoiceOccurence == 0 : "Not active listening yet; so no passive occurence either";
                 }
-            } else if (speechratio < threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
+            } else if (speechratio < vad_threshold && passiveVoiceOccurence > passVoiceMaxOccurence) {
                 throw new java.lang.Error("Program should not enter this branch!");
             }
-
-            Log.d(TAG, "ratio: " + speechratio +  ": active Listening: " + activeListening + "; passive Voice Occurence: " + passiveVoiceOccurence );
 
             byte[] audiodata2 = new byte[recordBufsize];
             // to turn shorts back to bytes.
             ByteBuffer.wrap(audiodata2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(shorts);
 
             if (AudioRecord.ERROR_INVALID_OPERATION != readsize && activeListening) {
+                Log.d(TAG, "ratio: " + speechratio +  ": active Listening: " + activeListening +  "; active Voice Occurence: " + activeVoiceOccurence + "; passive Voice Occurence: " + passiveVoiceOccurence );
+
                 try {
                     fos.write(audiodata2);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-            counter = counter + 1;
         }
+
         try {
             fos.close();// 关闭写入流
         } catch (IOException e) {
@@ -563,7 +585,7 @@ public class AddNewVoiceCommand extends Activity {
         header[29] = (byte) ((byteRate >> 8) & 0xff);
         header[30] = (byte) ((byteRate >> 16) & 0xff);
         header[31] = (byte) ((byteRate >> 24) & 0xff);
-        header[32] = (byte) (2 * 16 / 8); // block align
+        header[32] = (byte) (1 * 16 / 8); // block align
         header[33] = 0;
         header[34] = 16; // bits per sample
         header[35] = 0;
