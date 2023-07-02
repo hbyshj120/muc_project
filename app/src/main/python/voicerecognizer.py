@@ -91,6 +91,7 @@ def fftcorrcoeff(filename1, filename2):
 def speechratio(shorts, samplerate, fl = 50., fh = 4000., threshold = 30):
     df = samplerate*1.0/len(shorts)
     [nl, nh] = [int(fl/df), int(fh/df)]
+    print(shorts)
 
     power = np.abs(np.fft.rfft(shorts, n=len(shorts))/32768.)**2
 
@@ -99,8 +100,7 @@ def speechratio(shorts, samplerate, fl = 50., fh = 4000., threshold = 30):
     if 20*np.log10(np.sum(power)) < threshold:
         return 0
     # else:
-    #     print("speech: ", speech, "nonspeech: ", nonspeech,  "ratio: ", ratio, 20.*np.log10(np.sum(power)))
-
+    print("speech: ", speech, "nonspeech: ", nonspeech,  "ratio: ", ratio, 20.*np.log10(np.sum(power)))
 
     return ratio
 

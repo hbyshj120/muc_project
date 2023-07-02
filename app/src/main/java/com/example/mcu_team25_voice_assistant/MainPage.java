@@ -4,6 +4,7 @@ import static android.Manifest.permission.RECORD_AUDIO;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
@@ -23,17 +24,28 @@ import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 
+import org.pytorch.Device;
+import org.pytorch.IValue;
+import org.pytorch.LiteModuleLoader;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
 
+// https://medium.com/mlearning-ai/integrating-custom-pytorch-models-into-an-android-app-a2cdfce14fe8
 public class MainPage extends Activity {
 
     Button voicecommand;
@@ -63,12 +75,65 @@ public class MainPage extends Activity {
     private boolean isRecord = false;// 设置正在录制的状态
 
     private Thread recordingThread;
+
+    Module module;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.mainpage);
 
         Log.d(TAG, "Main Page Opened");
+
+        try {
+            String modelpath = assetFilePath("soundclassifier_quantized.ptl");
+//            String modelpath = assetFilePath("model.ptl");
+            module = LiteModuleLoader.load(modelpath);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        long[] shape = new long[]{1, 1, 16000};
+        Tensor inputTensor = generateTensor(shape);
+
+//        long[] shape = new long[]{1, 3, 224, 224};
+//        Tensor inputTensor = generateTensor3(shape);
+
+        IValue input = IValue.from(inputTensor);
+        Log.d(TAG, "input: "+ input);
+        final IValue output = module.forward(input);
+
+        final IValue[] output2 = module.forward(IValue.from(inputTensor)).toTuple();
+        final float[] pred = output2[0].toTensor().getDataAsFloatArray();
+        for (int i = 0; i < pred.length; i++) {
+            Log.d(TAG, "pred: "+ pred[i]);
+        }
+        final float[] logit = output2[1].toTensor().getDataAsFloatArray();
+        for (int i = 0; i < logit.length; i++) {
+            Log.d(TAG, "logit: "+ logit[i]);
+        }
+
+//
+//
+//        final float[] score_arr = output.getDataAsFloatArray();
+//
+//        // Fetch the index of the value with maximum score
+//        float max_score = -Float.MAX_VALUE;
+//        int ms_ix = -1;
+//        for (int i = 0; i < score_arr.length; i++) {
+//            if (score_arr[i] > max_score) {
+//                max_score = score_arr[i];
+//                ms_ix = i;
+//            }
+//        }
+//
+//        //Fetching the name from the list based on the index
+//        String detected_class = ModelClasses.SoundClasses[ms_ix];
+
+        //Writing the detected class in to the text view of the layout
+//        TextView textView = findViewById(R.id.result_text);
+//        textView.setText(detected_class);
+
+
 
         voice_content_library = findViewById(R.id.voice_content_library);
         voice_content_library.setOnClickListener(new View.OnClickListener() {
@@ -237,11 +302,12 @@ public class MainPage extends Activity {
 
         while (isRecord == true) {
             readsize = audioRecord.read(audiodata, 0, recordBufsize);
-//            Log.d(TAG, "writeDateTOFile: readsize --> " + readsize);
             short[] shorts = new short[audiodata.length/2];
             // https://stackoverflow.com/questions/5625573/byte-array-to-short-array-and-back-again-in-java
             // to turn bytes to shorts as either big endian or little endian.
             ByteBuffer.wrap(audiodata).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+
+            Log.d(TAG, "writeDateTOFile: readsize --> " + readsize + " --> " + shorts);
 
 
             if (!Python.isStarted()) {
@@ -436,6 +502,70 @@ public class MainPage extends Activity {
         header[42] = (byte) ((totalAudioLen >> 16) & 0xff);
         header[43] = (byte) ((totalAudioLen >> 24) & 0xff);
         out.write(header, 0, 44);
+    }
+    public static String fetchModelFile(Context context, String modelName) throws IOException {
+        File file = new File(context.getFilesDir(), modelName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = context.getAssets().open(modelName)) {
+            try (OutputStream os = new FileOutputStream(file)) {
+                byte[] buffer = new byte[4 * 1024];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+            return file.getAbsolutePath();
+        }
+    }
+
+    // Given the name of the pytorch model, get the path for that model
+    public String assetFilePath(String assetName) throws IOException {
+        File file = new File(this.getFilesDir(), assetName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = this.getAssets().open(assetName)) {
+            try (OutputStream os = new FileOutputStream(file)) {
+                byte[] buffer = new byte[4 * 1024];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+            return file.getAbsolutePath();
+        }
+    }
+
+    // Generate a tensor of random numbers given the size of that tensor.
+    public Tensor generateTensor(long[] Size) {
+        // Create a random array of floats
+        Random rand = new Random();
+        float[] arr = new float[(int)(Size[0]*Size[1]*Size[2])];
+        for (int i = 0; i < Size[0]*Size[1]*Size[2]; i++) {
+            arr[i] = -10000 + rand.nextFloat() * (20000);
+        }
+
+        // Create the tensor and return it
+        return Tensor.fromBlob(arr, Size);
+    }
+
+    // https://medium.com/mlearning-ai/integrating-custom-pytorch-models-into-an-android-app-a2cdfce14fe8
+    public Tensor generateTensor3(long[] Size) {
+        // Create a random array of floats
+        Random rand = new Random();
+        float[] arr = new float[(int)(Size[0]*Size[1]*Size[2]*Size[3])];
+        for (int i = 0; i < Size[0]*Size[1]*Size[2]*Size[3]; i++) {
+            arr[i] = -10000 + rand.nextFloat() * (20000);
+        }
+
+        // Create the tensor and return it
+        return Tensor.fromBlob(arr, Size);
     }
 }
 
