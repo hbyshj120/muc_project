@@ -27,7 +27,7 @@ android {
             }
         }
         python {
-            buildPython "/Users/j_hao/miniforge3/envs/cf711_py38_rb/bin/python"
+            buildPython "/Users/j_hao/miniforge3/envs/cf711_cf38/bin/python3"
         }
     }
 
