@@ -85,55 +85,12 @@ public class MainPage extends Activity {
         Log.d(TAG, "Main Page Opened");
 
         try {
-            String modelpath = assetFilePath("soundclassifier_quantized.ptl");
-//            String modelpath = assetFilePath("model.ptl");
+            String modelpath = assetFilePath("soundclassifier_quantized_lite.ptl");
             module = LiteModuleLoader.load(modelpath);
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-        long[] shape = new long[]{1, 1, 16000};
-        Tensor inputTensor = generateTensor(shape);
-
-//        long[] shape = new long[]{1, 3, 224, 224};
-//        Tensor inputTensor = generateTensor3(shape);
-
-        IValue input = IValue.from(inputTensor);
-        Log.d(TAG, "input: "+ input);
-        final IValue output = module.forward(input);
-
-        final IValue[] output2 = module.forward(IValue.from(inputTensor)).toTuple();
-        final float[] pred = output2[0].toTensor().getDataAsFloatArray();
-        for (int i = 0; i < pred.length; i++) {
-            Log.d(TAG, "pred: "+ pred[i]);
-        }
-        final float[] logit = output2[1].toTensor().getDataAsFloatArray();
-        for (int i = 0; i < logit.length; i++) {
-            Log.d(TAG, "logit: "+ logit[i]);
-        }
-
-//
-//
-//        final float[] score_arr = output.getDataAsFloatArray();
-//
-//        // Fetch the index of the value with maximum score
-//        float max_score = -Float.MAX_VALUE;
-//        int ms_ix = -1;
-//        for (int i = 0; i < score_arr.length; i++) {
-//            if (score_arr[i] > max_score) {
-//                max_score = score_arr[i];
-//                ms_ix = i;
-//            }
-//        }
-//
-//        //Fetching the name from the list based on the index
-//        String detected_class = ModelClasses.SoundClasses[ms_ix];
-
-        //Writing the detected class in to the text view of the layout
-//        TextView textView = findViewById(R.id.result_text);
-//        textView.setText(detected_class);
-
-
 
         voice_content_library = findViewById(R.id.voice_content_library);
         voice_content_library.setOnClickListener(new View.OnClickListener() {
@@ -189,7 +146,6 @@ public class MainPage extends Activity {
         });
 
         voicecommand.performClick();
-
 
     }
 
@@ -258,7 +214,13 @@ public class MainPage extends Activity {
         AudioRecordThread(String s) {wavFilename = s; }
         @Override
         public void run() {
-            writeDateTOFile(rawFilename, wavFilename);//往文件中写入裸数据
+            try {
+                writeDateTOFile(rawFilename, wavFilename);//往文件中写入裸数据
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -267,7 +229,7 @@ public class MainPage extends Activity {
      * 如果需要播放就必须加入一些格式或者编码的头信息。但是这样的好处就是你可以对音频的 裸数据进行处理，比如你要做一个爱说话的TOM
      * 猫在这里就进行音频的处理，然后重新封装 所以说这样得到的音频比较容易做一些音频的处理。
      */
-    private void writeDateTOFile(String rawFilename, String wavFilename) {
+    private void writeDateTOFile(String rawFilename, String wavFilename) throws Exception {
         // new一个byte数组用来存一些字节数据，大小为缓冲区大小
         Log.d(TAG, "writeDateTOFile: size --> " + recordBufsize);
 
@@ -284,9 +246,8 @@ public class MainPage extends Activity {
             e.printStackTrace();
         }
 
-        double vad_threshold = 40.0;
+        double vad_threshold = 45.0;
         double speech_threshold = 80.0;
-
 
 
         // active listening --> active voice occurred before and pass voice occurence never > 1 second
@@ -307,8 +268,7 @@ public class MainPage extends Activity {
             // to turn bytes to shorts as either big endian or little endian.
             ByteBuffer.wrap(audiodata).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
 
-            Log.d(TAG, "writeDateTOFile: readsize --> " + readsize + " --> " + shorts);
-
+//            Log.d(TAG, "writeDateTOFile: readsize --> " + readsize + " --> " + shorts);
 
             if (!Python.isStarted()) {
                 Python.start(new AndroidPlatform(MainPage.this));
@@ -351,21 +311,66 @@ public class MainPage extends Activity {
                             copyWaveFile(rawFilename, filename);//给裸数据加上头文件
                             Log.d(TAG, "save wav file: " + filename);
 
-                            ////////////////////////////////////////////////
-                            if (!Python.isStarted()) {
-                                Python.start(new AndroidPlatform(MainPage.this));
+
+
+
+//                            ////////////////////////////////////////////////
+//                            if (!Python.isStarted()) {
+//                                Python.start(new AndroidPlatform(MainPage.this));
+//                            }
+//                            Python python2 = Python.getInstance();
+//                            String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
+//                            PyObject pyObject2 = python2.getModule("voicerecognizer");
+//                            PyObject obj2 = pyObject2.callAttr("speechcorrelation", filename1, filename);
+//
+////                        Toast.makeText(MainPage.this, "Score: " + String.valueOf(obj2.toInt()), Toast.LENGTH_SHORT).show();
+//                            Log.d(TAG, "Score: " + String.valueOf(obj2.toInt()));
+
+//                            if (obj2.toInt() > speech_threshold) {
+
+                            AudioFileProcess audio = new AudioFileProcess();
+//                            filename = getFilesDir().getAbsolutePath() + "/mainpage_1688365608.wav";
+                            float[] inputs =  audio.ReadingAudioFile(filename, 16000, 32768);
+
+                            Log.d(TAG, "inputs length: " + inputs.length);
+
+                            long[] shape = new long[]{1, 1, 16000};
+                            Tensor inputTensor = Tensor.fromBlob(inputs, shape);
+                            Log.d(TAG, "inputTensor type " + inputTensor.dtype());
+
+                            IValue input = IValue.from(inputTensor);
+                            final IValue output = module.forward(input);
+
+                            final IValue[] output2 = module.forward(IValue.from(inputTensor)).toTuple();
+                            final float[] pred = output2[0].toTensor().getDataAsFloatArray();
+                            for (int i = 0; i < pred.length; i++) {
+                                Log.d(TAG, "pred: "+ pred[i]);
                             }
-                            Python python2 = Python.getInstance();
-                            String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
-                            PyObject pyObject2 = python2.getModule("voicerecognizer");
-                            PyObject obj2 = pyObject2.callAttr("speechcorrelation", filename1, filename);
+                            final float[] logit = output2[1].toTensor().getDataAsFloatArray();
+                            for (int i = 0; i < logit.length; i++) {
+                                Log.d(TAG, "logit: "+ logit[i]);
+                            }
 
-//                        Toast.makeText(MainPage.this, "Score: " + String.valueOf(obj2.toInt()), Toast.LENGTH_SHORT).show();
-                            Log.d(TAG, "Score: " + String.valueOf(obj2.toInt()));
+                            // Fetch the index of the value with maximum score
+                            int ms_ix = 0;
+                            for (int i = 0; i < pred.length; i++) {
+                                ms_ix = pred[i] > pred[ms_ix] ? i : ms_ix;
+                            }
+                            Log.d(TAG, "mx_ix: " + ms_ix);
+                            //Fetching the name from the list based on the index
+                            String detected_class = ModelClasses.SoundClasses[ms_ix];
 
-                            if (obj2.toInt() > speech_threshold) {
-                                Log.d(TAG, "Switch to Voice Content Library");
+                            float[] inputs2 =  audio.ReadingAudioFile(filename, 16000, 1);
+                            short int16[] =  audio.float32ToInt16(inputs2); // suppose, the new wav file's each sample will be in int16 Format
+                            audio.WriteCleanAudioWav(this,filename.substring(0, filename.length()-4) + "_" +  detected_class + ".wav", int16);
 
+
+                            //Writing the detected class in to the text view of the layout
+//                            Toast.makeText(MainPage.this, detected_class + " is deteced.", Toast.LENGTH_SHORT).show();
+
+                            Log.d(TAG, detected_class + " is deteced.");
+
+                            if (detected_class.equals("Plank")) {
 //                            Intent intent = new Intent(MainPage.this, VoiceCommandLibrary.class);
 //                            startActivity(intent);
                                 isRecord = false;
@@ -567,5 +572,6 @@ public class MainPage extends Activity {
         // Create the tensor and return it
         return Tensor.fromBlob(arr, Size);
     }
+
 }
 
