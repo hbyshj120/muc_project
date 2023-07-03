@@ -27,7 +27,7 @@ public class Timer extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.timer);
 
-        text1=(TextView)findViewById(R.id.textView1);
+        text1=(TextView)findViewById(R.id.textClock);
 
         int time_duration_in_seconds = getIntent().getIntExtra("time_duration_in_seconds", 10);
         int COUNTDWON_INTERVAL = 1000;
