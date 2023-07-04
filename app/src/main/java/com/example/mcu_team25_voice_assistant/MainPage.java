@@ -40,6 +40,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -77,12 +78,38 @@ public class MainPage extends Activity {
     private Thread recordingThread;
 
     Module module;
+
+    private DBHelper dbHelper;
+    final private static int limit = 4;
+    TextView[] commandViews = new TextView[limit];
+    private String[] audioNames = new String[limit];
+    private ArrayList<VoiceCommand> voiceCommandList;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.mainpage);
 
         Log.d(TAG, "Main Page Opened");
+
+        dbHelper = new DBHelper(MainPage.this);
+
+        voiceCommandList = dbHelper.getTopRows(limit);
+
+        commandViews[0] = findViewById(R.id.mainPageName1);
+        commandViews[1] = findViewById(R.id.mainPageName2);
+        commandViews[2] = findViewById(R.id.mainPageName3);
+        commandViews[3] = findViewById(R.id.mainPageName4);
+
+        for (int i = 0; i < voiceCommandList.size(); ++i) {
+            VoiceCommand command = voiceCommandList.get(i);
+
+            Log.d("Command ", Integer.toString(i) + " : " + command.printCommand());
+
+            audioNames[i] = command.getName();
+            commandViews[i].setText(audioNames[i]);
+        }
+
 
         try {
             String modelpath = assetFilePath("soundclassifier_quantized_lite.ptl");
@@ -123,6 +150,7 @@ public class MainPage extends Activity {
 
                 if (isRecord) {
                     stopRecord();
+                    findViewById(R.id.loadingPanel).setVisibility(View.GONE);
                 } else {
                     Log.d(TAG, "Is recording");
                     if (CheckPermission()) {
@@ -138,7 +166,7 @@ public class MainPage extends Activity {
                         Log.d(TAG, "buttonStart.setOnClickListener: RequestPermission");
                         RequestPermission();
                     }
-
+                    findViewById(R.id.loadingPanel).setVisibility(View.VISIBLE);
                 }
 
 
@@ -247,7 +275,7 @@ public class MainPage extends Activity {
         }
 
         double vad_threshold = 45.0;
-        double speech_threshold = 80.0;
+        double class_probability = 0.5;
 
 
         // active listening --> active voice occurred before and pass voice occurence never > 1 second
@@ -312,22 +340,6 @@ public class MainPage extends Activity {
                             Log.d(TAG, "save wav file: " + filename);
 
 
-
-
-//                            ////////////////////////////////////////////////
-//                            if (!Python.isStarted()) {
-//                                Python.start(new AndroidPlatform(MainPage.this));
-//                            }
-//                            Python python2 = Python.getInstance();
-//                            String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
-//                            PyObject pyObject2 = python2.getModule("voicerecognizer");
-//                            PyObject obj2 = pyObject2.callAttr("speechcorrelation", filename1, filename);
-//
-////                        Toast.makeText(MainPage.this, "Score: " + String.valueOf(obj2.toInt()), Toast.LENGTH_SHORT).show();
-//                            Log.d(TAG, "Score: " + String.valueOf(obj2.toInt()));
-
-//                            if (obj2.toInt() > speech_threshold) {
-
                             AudioFileProcess audio = new AudioFileProcess();
 //                            filename = getFilesDir().getAbsolutePath() + "/mainpage_1688365608.wav";
                             float[] inputs =  audio.ReadingAudioFile(filename, 16000, 32768);
@@ -364,21 +376,22 @@ public class MainPage extends Activity {
                             short int16[] =  audio.float32ToInt16(inputs2); // suppose, the new wav file's each sample will be in int16 Format
                             audio.WriteCleanAudioWav(this,filename.substring(0, filename.length()-4) + "_" +  detected_class + ".wav", int16);
 
-
                             //Writing the detected class in to the text view of the layout
 //                            Toast.makeText(MainPage.this, detected_class + " is deteced.", Toast.LENGTH_SHORT).show();
 
-                            Log.d(TAG, detected_class + " is deteced.");
+                            Log.d(TAG, detected_class + " is deteced with probobility: " + pred[ms_ix]);
 
-                            if (detected_class.equals("Plank")) {
+                            if (pred[ms_ix] > class_probability) {
 //                            Intent intent = new Intent(MainPage.this, VoiceCommandLibrary.class);
 //                            startActivity(intent);
                                 isRecord = false;
                                 // https://stackoverflow.com/questions/49738997/calling-a-new-activity-from-within-runnable
                                 runOnUiThread(new Runnable() {
                                     public void run() {
-                                        Intent show = new Intent(MainPage.this, Timer.class);
-                                        startActivity(show);
+                                        Intent intent = new Intent(MainPage.this, Timer.class);
+                                        intent.putExtra("commandName", detected_class);
+                                        intent.putExtra("duration_in_seconds", 10);
+                                        startActivity(intent);
                                     }
                                 });
                             }

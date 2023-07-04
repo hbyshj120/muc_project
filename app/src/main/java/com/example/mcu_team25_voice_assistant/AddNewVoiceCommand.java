@@ -6,6 +6,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -15,6 +16,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -57,11 +59,6 @@ public class AddNewVoiceCommand extends Activity {
     // 音频数据格式:PCM 16位每个样本。保证设备支持。PCM 8位每个样本。不一定能得到设备支持。
     private static int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
 
-    String AudioName = null;
-
-    //NewAudioName可播放的音频文件
-    String NewAudioName = null;
-
     private boolean isRecord = false;// 设置正在录制的状态
 
     private Thread recordingThread;
@@ -74,23 +71,25 @@ public class AddNewVoiceCommand extends Activity {
 
     private static final String TAG = "Add New Voice Command: ";
 
+    EditText command_name;
+    String commandName;
+    String commandPath;
 
+    DBHelper db_command;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.addnewvoicecommand);
 
-        Log.d(TAG, "Add New Voice Command Opened");
-
         record = (Button) findViewById(R.id.newvoicecommandrecord);
         stop = (Button) findViewById(R.id.newvoicecommandstop);
         play = (Button) findViewById(R.id.newvoicecommandplay);
-        save = (Button) findViewById(R.id.newvoicecommandsave);
         record2 = (Button) findViewById(R.id.newvoicecommandrecord2);
         stop2 = (Button) findViewById(R.id.newvoicecommandstop2);
         play2 = (Button) findViewById(R.id.newvoicecommandplay2);
         check = (Button) findViewById(R.id.newvoicecommandcheck);
+        save = (Button) findViewById(R.id.newvoicecommandsave);
 
         record.setEnabled(true);
         stop.setEnabled(false);
@@ -101,9 +100,53 @@ public class AddNewVoiceCommand extends Activity {
         play2.setEnabled(false);
         check.setEnabled(true);
 
+        commandName = getIntent().getStringExtra("commandName");
+        Boolean isModify = getIntent().getBooleanExtra("isModify", false);
+
+        command_name = findViewById(R.id.command_name);
+
+        // DBHelper
+        db_command = new DBHelper(AddNewVoiceCommand.this);
+
+        if (isModify) {
+            Log.d(TAG, "Modify Voice Command Opened for " + commandName);
+            play.setEnabled(true);
+            command_name.setText(commandName);
+            assert db_command.getCommand(commandName).getCount() == 1 : "command name is not right in database";
+
+            Cursor cursor = db_command.getCommand(commandName);
+            cursor.moveToFirst(); // https://stackoverflow.com/questions/50525179/gdx-sqlite-android-database-cursorindexoutofboundsexception-index-1-requested
+
+            VoiceCommand command = new VoiceCommand(cursor.getString(1),
+                    cursor.getString(2), cursor.getFloat(3), cursor.getInt(4), cursor.getFloat(5));
+            commandPath = command.getPath();
+
+            if (!Python.isStarted()) {
+                Python.start(new AndroidPlatform(AddNewVoiceCommand.this));
+            }
+            Python python = Python.getInstance();
+
+            PyObject pyObject = python.getModule("voicerecognizer");
+            List<PyObject> obj = pyObject.callAttr("process", commandPath).asList();
+
+            mImageView = (ImageView) findViewById(R.id.image1);
+            mImageView.setImageBitmap(BitmapFactory.decodeFile(commandPath + ".png"));
+            
+        } else {
+            Log.d(TAG, "Add New Voice Command Opened");
+        }
+
         record.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
+                if (command_name.getText().toString().isEmpty()) {
+                    Toast.makeText(AddNewVoiceCommand.this, "Enter Command Name First", Toast.LENGTH_SHORT).show();
+                    return;
+                } else {
+                    commandName = command_name.getText().toString();
+                    commandPath = getFilesDir().getAbsolutePath() + "/" + commandName + ".wav";
+                }
 
                 if (isRecord) {
                     stopRecord();
@@ -117,7 +160,7 @@ public class AddNewVoiceCommand extends Activity {
                         AudioRecorderReady();
 
                         try {
-                            startRecord("record.wav");
+                            startRecord(commandName + ".wav");
                         } catch (IllegalStateException e) {
                             e.printStackTrace();
                         }
@@ -159,17 +202,12 @@ public class AddNewVoiceCommand extends Activity {
                     Python.start(new AndroidPlatform(AddNewVoiceCommand.this));
                 }
                 Python python = Python.getInstance();
-                String NewAudioName = getFilesDir().getAbsolutePath() + "/record.wav";
+
                 PyObject pyObject = python.getModule("voicerecognizer");
-                List<PyObject> obj = pyObject.callAttr("process", NewAudioName).asList();
+                List<PyObject> obj = pyObject.callAttr("process", commandPath).asList();
 
                 mImageView = (ImageView) findViewById(R.id.image1);
-                mImageView.setImageBitmap(BitmapFactory.decodeFile(getFilesDir().getAbsolutePath() + "/record.wav.png"));
-
-//        int samplingFrequency = obj.get(0).toJava(int.class);
-//        int numberOfSamples = obj.get(1).toJava(int.class);
-//        double[] array = obj.get(2).toJava(double[].class);
-
+                mImageView.setImageBitmap(BitmapFactory.decodeFile(commandPath + ".png"));
             }
         });
 
@@ -185,16 +223,16 @@ public class AddNewVoiceCommand extends Activity {
 
                 mediaPlayer = new MediaPlayer();
                 try {
-                    mediaPlayer.setDataSource(getFilesDir().getAbsolutePath() + "/" + "record.wav");
+                    mediaPlayer.setDataSource(commandPath);
                     mediaPlayer.prepare();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
 
-                Log.d(TAG, getFilesDir().getAbsolutePath() + "/record.wav" + " is loaded");
+                Log.d(TAG, commandPath + " is loaded");
 
                 mediaPlayer.start();
-                Toast.makeText(AddNewVoiceCommand.this,   " record.wav is playing", Toast.LENGTH_SHORT).show();
+                Toast.makeText(AddNewVoiceCommand.this,   commandPath +" is playing", Toast.LENGTH_SHORT).show();
 
                 mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                     @Override
@@ -264,12 +302,47 @@ public class AddNewVoiceCommand extends Activity {
 
                 mImageView = (ImageView) findViewById(R.id.image2);
                 mImageView.setImageBitmap(BitmapFactory.decodeFile(getFilesDir().getAbsolutePath() + "/record2.wav.png"));
-
-//        int samplingFrequency = obj.get(0).toJava(int.class);
-//        int numberOfSamples = obj.get(1).toJava(int.class);
-//        double[] array = obj.get(2).toJava(double[].class);
             }
         });
+
+        play2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                record.setEnabled(false);
+                stop.setEnabled(false);
+                play.setEnabled(false);
+                save.setEnabled(false);
+                record2.setEnabled(false);
+                stop2.setEnabled(false);
+
+                mediaPlayer = new MediaPlayer();
+                try {
+                    mediaPlayer.setDataSource(getFilesDir().getAbsolutePath() + "/record2.wav");
+                    mediaPlayer.prepare();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                Log.d(TAG, getFilesDir().getAbsolutePath() + "/record2.wav" + " is loaded");
+
+                mediaPlayer.start();
+                Toast.makeText(AddNewVoiceCommand.this,   getFilesDir().getAbsolutePath() + "/record2.wav is playing", Toast.LENGTH_SHORT).show();
+
+                mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                    @Override
+                    public void onCompletion(MediaPlayer mp) {
+                        record.setEnabled(true);
+                        stop.setEnabled(false);
+                        play.setEnabled(true);
+                        save.setEnabled(true);
+                        record2.setEnabled(true);
+                        stop.setEnabled(false);
+                        play.setEnabled(true);
+                    }
+                });
+            }
+        });
+
 
         check.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -280,16 +353,33 @@ public class AddNewVoiceCommand extends Activity {
                     Python.start(new AndroidPlatform(AddNewVoiceCommand.this));
                 }
                 Python python = Python.getInstance();
-                String filename1 = getFilesDir().getAbsolutePath() + "/record.wav";
                 String filename2 = getFilesDir().getAbsolutePath() + "/record2.wav";
                 PyObject pyObject = python.getModule("voicerecognizer");
-                PyObject obj = pyObject.callAttr("speechcorrelation", filename1, filename2);
+                PyObject obj = pyObject.callAttr("speechcorrelation", commandPath, filename2);
 
                 TextView text1=(TextView)findViewById(R.id.addnewvoicecommandcorrcoeff);
                 text1.setText(String.valueOf(obj.toInt()));
 
                 mImageView = (ImageView) findViewById(R.id.image3);
                 mImageView.setImageBitmap(BitmapFactory.decodeFile(getFilesDir().getAbsolutePath() + "/record2.wav_aligned.png"));
+
+            }
+        });
+
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.d(TAG, "Save Voice Command to Database");
+
+                if (isModify) {
+                    db_command.updateAudio(commandName, commandPath);
+                } else {
+                    db_command.addCommand(commandName, commandPath, 0, 0, 0);
+                }
+
+                // Indicate to the user that data was stored
+                Toast.makeText(AddNewVoiceCommand.this, "Voice Command Saved", Toast.LENGTH_SHORT).show();
+
 
             }
         });

@@ -11,16 +11,26 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 public class VoiceCommandLibrary extends Activity {
     TextView popularvoicecommands;
     TextView allvoicecommands;
-    TextView voicecommand1;
-    Button voicecommand1play;
-    Button voicecommand1modify;
+    final private static int limit = 4;
+    TextView[] commandViews = new TextView[limit];
+    Button[] playButtons = new Button[limit];
+    Button[] modifyButtons = new Button[limit];
     Button addnewvoicecommand;
     TextView voicecontentlibraryreturn;
     MediaPlayer mediaPlayer;
+
+    private DBHelper dbHelper;
+
+    private ArrayList<VoiceCommand> voiceCommandList;
+    private Boolean[] isActive = new Boolean[limit];
+    private String[] audioNames = new String[limit];
+    private String[] audioPaths = new String[limit];
+
     private static final String TAG = "Voice Content Library: ";
 
     @Override
@@ -30,53 +40,82 @@ public class VoiceCommandLibrary extends Activity {
 
         Log.d(TAG, "Voice Content Library Opened");
 
-        voicecommand1 = findViewById(R.id.voicecommand1);
-        // list top 5 popular voice commands by visiting DB
-        String voicecommand1name = "Plank 30 seconds";
-        String voicecommand1filename = "beep.wav";
+        dbHelper = new DBHelper(VoiceCommandLibrary.this);
 
-        voicecommand1.setText(voicecommand1name);
+        voiceCommandList = dbHelper.getTopRows(limit);
 
-        voicecommand1play = findViewById(R.id.voicecommand1play);
-        voicecommand1modify = findViewById(R.id.voicecommand1modify);
+        commandViews[0] = findViewById(R.id.name1);
+        commandViews[1] = findViewById(R.id.name2);
+        commandViews[2] = findViewById(R.id.name3);
+        commandViews[3] = findViewById(R.id.name4);
+        playButtons[0] = findViewById(R.id.play1);
+        playButtons[1] = findViewById(R.id.play2);
+        playButtons[2]= findViewById(R.id.play3);
+        playButtons[3] = findViewById(R.id.play4);
+        modifyButtons[0] = findViewById(R.id.modify1);
+        modifyButtons[1]= findViewById(R.id.modify2);
+        modifyButtons[2] = findViewById(R.id.modify3);
+        modifyButtons[3] = findViewById(R.id.modify4);
 
-        voicecommand1play.setEnabled(true);
-        voicecommand1modify.setEnabled(true);
+        for (int i = 0; i < playButtons.length; ++i) {
+            playButtons[i].setEnabled(false);
+            modifyButtons[i].setEnabled(false);
+        }
 
-        voicecommand1play.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                voicecommand1modify.setEnabled(false);
-                mediaPlayer = new MediaPlayer();
-                try {
-                    mediaPlayer.setDataSource(getFilesDir().getAbsolutePath() + "/" +voicecommand1filename);
-                    mediaPlayer.prepare();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        for (int i = 0; i < voiceCommandList.size(); ++i) {
+            VoiceCommand command = voiceCommandList.get(i);
 
-                Log.d(TAG, getFilesDir().getAbsolutePath() + "/" +voicecommand1filename + " is loaded");
+            Log.d("Command ", Integer.toString(i) + " : " + command.printCommand());
 
-                mediaPlayer.start();
-                Toast.makeText(VoiceCommandLibrary.this, voicecommand1name + " is playing", Toast.LENGTH_SHORT).show();
+            isActive[i] = Boolean.TRUE;
+            audioNames[i] = command.getName();
+            audioPaths[i] = command.getPath();
+            commandViews[i].setText(audioNames[i]);
+            playButtons[i].setEnabled(true);
+            modifyButtons[i].setEnabled(true);
+        }
 
-                mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                    @Override
-                    public void onCompletion(MediaPlayer mp) {
-                        voicecommand1modify.setEnabled(true);
+        for (int i = 0; i < voiceCommandList.size(); ++i) {
+            int finalI = i;
+            playButtons[i].setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    modifyButtons[finalI].setEnabled(false);
+                    mediaPlayer = new MediaPlayer();
+                    try {
+                        mediaPlayer.setDataSource(audioPaths[finalI]);
+                        mediaPlayer.prepare();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                });
-            }
-        });
 
-        voicecommand1modify.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
+                    Log.d(TAG, audioPaths[finalI] + " is loaded");
 
-            }
-        });
+                    mediaPlayer.start();
+                    Toast.makeText(VoiceCommandLibrary.this, audioPaths[finalI] + " is playing", Toast.LENGTH_SHORT).show();
+                    mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                        @Override
+                        public void onCompletion(MediaPlayer mp) {
+                            modifyButtons[finalI].setEnabled(true);
+                        }
+                    });
+                }
+            });
 
-        addnewvoicecommand = findViewById(R.id.addnewvoicecommand);
+            modifyButtons[i].setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Log.d(TAG, "Switch to Modify Voice Command");
+                    Intent intent = new Intent(VoiceCommandLibrary.this, AddNewVoiceCommand.class);
+                    intent.putExtra("commandName", audioNames[finalI]);
+                    intent.putExtra("isModify", true);
+                    startActivity(intent);
+                }
+            });
+        }
+
+
+        addnewvoicecommand = findViewById(R.id.addnewcommands);
         addnewvoicecommand.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -86,7 +125,7 @@ public class VoiceCommandLibrary extends Activity {
             }
         });
 
-        voicecontentlibraryreturn = findViewById(R.id.voicecontentlibraryreturn);
+        voicecontentlibraryreturn = findViewById(R.id.returnbutton);
         voicecontentlibraryreturn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {

@@ -27,7 +27,7 @@ android {
             }
         }
         python {
-            buildPython "/Users/j_hao/miniforge3/envs/cf711_cf38/bin/python3"
+            buildPython "/Users/j_hao/miniforge3/envs/torch-gpu/bin/python3.8"
         }
     }
 
