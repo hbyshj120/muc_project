@@ -52,7 +52,11 @@ public class VoiceCommand implements Serializable {
         totalUsages = totalUsages + usage;
     }
     public float getAverageUsages() {
-        return totalUsages / numUsages;
+        if (numUsages == 0) {
+            return 0.0F;
+        } else {
+            return totalUsages / numUsages;
+        }
     }
 
     public String printCommand() {

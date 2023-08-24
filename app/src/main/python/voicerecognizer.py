@@ -18,93 +18,20 @@ def process(filename):
 
     return samplerate, len(data), data
 
-def corrcoeff(filename1, filename2):
-
-    samplerate, data = wavfile.read(filename1)
-    _, data2 = wavfile.read(filename2)
-
-    # data = np.array([0, 1, 2, 3, 0, 0, 0])
-    # data2 = np.array([0, 0, 1, 2, 3, 0, 0, 0, 0])
-    data = data/32768.
-    data2 = data2/32768.
-    print("JH", samplerate, data.shape, data2.shape)
-
-    corr = np.correlate(data ,  data2 , mode='full')
-    lag = corr.argmax() - (len(data2) - 1)
-    print(corr.argmax(), lag)
-    plt.plot(corr)
-    plt.savefig(filename2+'_corrcoeff.png')
-    if lag < 0:
-        data2 = data2[-lag:]
-    else:
-        data2 = np.pad(data2, (lag, 0), 'constant', constant_values=(0,0))
-
-    minL = min(len(data), len(data2))
-    data = data[:minL]
-    data2 = data2[:minL]
-
-    R = np.corrcoef(data, data2)
-    print("R: ", R)
-    plt.plot(data, 'r')
-    plt.plot(data2, 'b')
-    plt.savefig(filename2+'_aligned.png')
-
-    return R[0, 1]
-
-def fftcorrcoeff(filename1, filename2):
-
-    samplerate, data = wavfile.read(filename1)
-    _, data2 = wavfile.read(filename2)
-
-    data = data/32768.
-    data2 = data2/32768.
-    print("JH", samplerate, data.shape, data2.shape)
-
-    N = max(len(data), len(data2))
-    data = np.pad(data, (N - len(data), 0), 'constant', constant_values=(0,0))
-    data2 = np.pad(data2, (N - len(data2), 0), 'constant', constant_values=(0,0))
-
-    T = 1.0/samplerate
-    comp = fft(data)
-    comp2 = fft(data2)
-    xf = fftfreq(N, T)[:N//2]
-    df = 1.0/(N*T)
-
-    fl = 50
-    fh = 5000
-    nl = int(fl / df)
-    nh = int(fh / df)
-    print("focus on frequency range: ", xf[nl], "hz to ", xf[nh], "hz")
-
-    R = np.corrcoef(np.abs(comp[nl:nh]), np.abs(comp2[nl:nh]))
-
-    print("R: ", R)
-    fig = plt.figure()
-    plt.plot(2.0/N * np.abs(comp[nl:nh]))
-    plt.plot(2.0/N * np.abs(comp2[nl:nh]))
-    plt.show()
-
-    plt.savefig(filename2+'_aligned.png')
-
-    return R[0, 1]
-
-def speechratio(shorts, samplerate, fl = 50., fh = 4000., threshold = 30):
+def speechratio(shorts, samplerate, fl = 50., fh = 4000., threshold = 20):
     df = samplerate*1.0/len(shorts)
     [nl, nh] = [int(fl/df), int(fh/df)]
-    # print(shorts)
 
     power = np.abs(np.fft.rfft(shorts, n=len(shorts))/32768.)**2
 
-    [speech, nonspeech] = [20*np.log10(np.sum(power[nl:nh])), 20*np.log10(np.sum(power) - np.sum(power[nl:nh]))]
+    db_level = 10*np.log10(np.sum(power))
+    [speech, nonspeech] = [10*np.log10(np.sum(power[nl:nh])), 10*np.log10(np.sum(power) - np.sum(power[nl:nh]))]
     ratio = speech - nonspeech
-    if 20*np.log10(np.sum(power)) < threshold:
+
+    if db_level < threshold:
         return 0
-    # else:
-    # print("speech: ", speech, "nonspeech: ", nonspeech,  "ratio: ", ratio, 20.*np.log10(np.sum(power)))
 
     return ratio
-
-
 def speechratios(filename, win_length = 2048, hop_length = 512):
     samplerate, y = wavfile.read(filename)
 

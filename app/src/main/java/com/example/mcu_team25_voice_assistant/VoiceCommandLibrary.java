@@ -20,6 +20,7 @@ public class VoiceCommandLibrary extends Activity {
     TextView[] commandViews = new TextView[limit];
     Button[] playButtons = new Button[limit];
     Button[] modifyButtons = new Button[limit];
+    Button more;
     Button addnewvoicecommand;
     TextView voicecontentlibraryreturn;
     MediaPlayer mediaPlayer;
@@ -113,6 +114,15 @@ public class VoiceCommandLibrary extends Activity {
                 }
             });
         }
+
+        more = findViewById(R.id.more);
+        more.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                Log.d(TAG, "Switch to More");
+                Intent intent = new Intent(VoiceCommandLibrary.this, FullVoiceCommandList.class);
+                startActivity(intent);
+            }
+        });
 
 
         addnewvoicecommand = findViewById(R.id.addnewcommands);

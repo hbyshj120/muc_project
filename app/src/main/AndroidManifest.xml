@@ -42,6 +42,14 @@
             android:name=".Timer"
             android:exported="false" />
 
+        <activity
+            android:name=".FullVoiceCommandList"
+            android:exported="false" />
+
+        <activity
+            android:name=".Statistics"
+            android:exported="false" />
+
     </application>
 
 </manifest>
